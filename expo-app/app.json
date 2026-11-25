@@ -21,7 +21,9 @@
         "NSLocationWhenInUseUsageDescription": "نحتاج موقعك لعرض الخدمات القريبة وتتبع الرحلات",
         "NSCameraUsageDescription": "نحتاج الكاميرا لالتقاط صور الملف الشخصي",
         "NSPhotoLibraryUsageDescription": "نحتاج معرض الصور لاختيار صورة الملف الشخصي",
-        "UIBackgroundModes": ["location"]
+        "UIBackgroundModes": [
+          "location"
+        ]
       }
     },
     "android": {
@@ -56,7 +58,10 @@
       ]
     ],
     "extra": {
-      "appVariant": "large_driver"
+      "appVariant": "large_driver",
+      "eas": {
+        "projectId": "7fb63d6a-9a6a-4039-bf22-d087535c8ab0"
+      }
     },
     "runtimeVersion": {
       "policy": "appVersion"
