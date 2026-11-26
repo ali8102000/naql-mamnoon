@@ -417,7 +417,7 @@ export default function AccountSettingsScreen() {
       {personalRequests.filter((item) => item.status === "approved").slice(0,1).map((item) => <Text key={item.id} style={styles.hint}>آخر طلب تحديث تمت الموافقة عليه.</Text>)}
       <View style={{ height: 12 }} />
       <Button title={vehicleBusy ? "جارٍ إرسال طلب المراجعة..." : "إرسال تحديث المركبة للمراجعة"} onPress={submitVehicleUpdate} loading={vehicleBusy} />
-      {personalRequests.filter((item) => item.requested_data?.profile_update).slice(0,3).map((item) => <View key={item.id} style={styles.requestStatus}>
+      {personalRequests.filter((item) => item.requested_data?.profile_update).slice(0,3).map((item) => <View key={item.id} style={styles.note}>
         <Text style={styles.note}>{item.status === "pending" ? "طلب تحديث بياناتك قيد مراجعة الإدارة" : item.status === "approved" ? "تمت الموافقة على آخر تحديث لبياناتك" : "تم رفض آخر تحديث لبياناتك"}</Text>
         {item.status === "rejected" && <Text style={styles.note}>سبب الرفض: {item.rejection_reason || "يرجى التواصل مع الإدارة"}</Text>}
       </View>)}
