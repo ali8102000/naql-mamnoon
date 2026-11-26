@@ -1,5 +1,14 @@
 apply plugin: 'com.android.library'
 apply plugin: 'expo-module-gradle-plugin'
+
 group = 'expo.modules.overlaypermission'
 version = '1.0.0'
-android { namespace "expo.modules.overlaypermission"; defaultConfig { minSdkVersion 24 } }
+
+android {
+  namespace "expo.modules.overlaypermission"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+    minSdkVersion 24
+  }
+}
