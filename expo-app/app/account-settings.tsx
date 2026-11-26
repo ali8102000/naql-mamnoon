@@ -59,7 +59,7 @@ export default function AccountSettingsScreen() {
   const [vehiclePlate, setVehiclePlate] = useState("");
   const [vehicleColor, setVehicleColor] = useState("");
   const [vehicleBusy, setVehicleBusy] = useState(false);
-  const [vehicleRequests, setVehicleRequests] = useState<any[]>([]);
+  const [personalRequests, setPersonalRequests] = useState<any[]>([]);
   const [vehicleLoadError, setVehicleLoadError] = useState("");
   const governorateLabels: Record<string,string> = {baghdad:"بغداد",basra:"البصرة",nineveh:"نينوى",erbil:"أربيل",sulaymaniyah:"السليمانية",duhok:"دهوك",kirkuk:"كركوك",najaf:"النجف",karbala:"كربلاء",babil:"بابل",anbar:"الأنبار",diyala:"ديالى",saladin:"صلاح الدين",wasit:"واسط",dhiqar:"ذي قار",maysan:"ميسان",muthanna:"المثنى",qadisiyah:"القادسية"};
 
@@ -68,6 +68,7 @@ export default function AccountSettingsScreen() {
   useEffect(() => { setEmail(actualEmail); }, [actualEmail]);
   useEffect(() => { if (routeParams.partner === "1") setPartnerFormOpen(true); }, [routeParams.partner]);
   useEffect(() => { if (user?.id) void loadPartnerApplications(); }, [user?.id]);
+  useEffect(() => { if (user?.id) void loadProfileChangeRequests(); }, [user?.id]);
   useEffect(() => {
     if (!user?.id || APP_VARIANT === "customer") return;
     let active = true;
@@ -92,7 +93,7 @@ export default function AccountSettingsScreen() {
         .eq("user_id", user.id).eq("provider_type", providerType)
         .order("created_at", { ascending: false }).limit(5);
       if (!active) return;
-      if (!requestError) setVehicleRequests(requests ?? []);
+      if (!requestError) setPersonalRequests(requests ?? []);
     })().catch((error) => {
       if (active) setVehicleLoadError(error instanceof Error ? error.message : "تعذر تحميل بيانات المركبة.");
     });
@@ -248,19 +249,32 @@ export default function AccountSettingsScreen() {
       Alert.alert("اسم غير صحيح", "اكتب الاسم الكامل بين حرفين و80 حرفاً.");
       return;
     }
+    if (personalRequests.some((item) => item.status === "pending" && item.requested_data?.profile_update)) {
+      Alert.alert("طلب قيد المراجعة", "عندك طلب تحديث بيانات ينتظر موافقة الإدارة حالياً."); return;
+    }
     setBusy(true);
     try {
-      const { error } = await (supabase as any).from("profiles")
-        .update({ full_name: nextName })
-        .eq("id", user.id);
+      const { error } = await (supabase as any).rpc("submit_provider_change_request", {
+        _provider_type: providerType,
+        _requested_data: { profile_update: { full_name: nextName } },
+      });
       if (error) throw error;
-      await refresh();
-      Alert.alert("تم التحديث", "تم حفظ اسمك الجديد في حسابك بنجاح.");
+      Alert.alert("تم إرسال الطلب", "وصل تحديث بياناتك إلى الإدارة للمراجعة. يبقى اسمك الحالي معتمداً إلى حين الموافقة.");
+      await loadProfileChangeRequests();
     } catch (error) {
-      Alert.alert("تعذر تحديث المعلومات", error instanceof Error ? error.message : "حاول مرة ثانية.");
+      Alert.alert("تعذر إرسال طلب التحديث", error instanceof Error ? error.message : "حاول مرة ثانية.");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function loadProfileChangeRequests() {
+    if (!user?.id) return;
+    const { data } = await (supabase as any).from("provider_change_requests")
+      .select("id,status,rejection_reason,created_at,requested_data")
+      .eq("user_id", user.id).eq("provider_type", providerType)
+      .order("created_at", { ascending: false }).limit(8);
+    setPersonalRequests(data ?? []);
   }
 
   async function submitVehicleUpdate() {
@@ -279,7 +293,7 @@ export default function AccountSettingsScreen() {
     if (plate.length < 2 || plate.length > 30 || color.length > 40) {
       Alert.alert("بيانات المركبة", "تأكد من رقم اللوحة واللون."); return;
     }
-    if (vehicleRequests.some((item) => item.status === "pending")) {
+    if (personalRequests.some((item) => item.status === "pending")) {
       Alert.alert("طلب قيد المراجعة", "عندك طلب تحديث مركبة ينتظر موافقة الإدارة حالياً."); return;
     }
     setVehicleBusy(true);
@@ -300,7 +314,7 @@ export default function AccountSettingsScreen() {
         .select("id,status,rejection_reason,created_at,requested_data")
         .eq("user_id", user.id).eq("provider_type", providerType)
         .order("created_at", { ascending: false }).limit(5);
-      setVehicleRequests(data ?? []);
+      setPersonalRequests(data ?? []);
     } catch (error) {
       Alert.alert("تعذر إرسال التحديث", error instanceof Error ? error.message : "حاول مرة ثانية.");
     } finally {
@@ -398,11 +412,15 @@ export default function AccountSettingsScreen() {
       <RealInput value={vehiclePlate} onChangeText={setVehiclePlate} placeholder="رقم لوحة المركبة" maxLength={30} />
       <Text style={styles.label}>اللون (اختياري)</Text>
       <RealInput value={vehicleColor} onChangeText={setVehicleColor} placeholder="مثال: أبيض" maxLength={40} />
-      {vehicleRequests.some((item) => item.status === "pending") && <Text style={styles.hint}>طلب تحديث المركبة قيد مراجعة الإدارة حالياً. بياناتك المعتمدة لم تتغير.</Text>}
-      {vehicleRequests.filter((item) => item.status === "rejected").slice(0,1).map((item) => <Text key={item.id} style={styles.note}>آخر طلب مرفوض: {item.rejection_reason || "يرجى مراجعة الإدارة لمعرفة السبب."}</Text>)}
-      {vehicleRequests.filter((item) => item.status === "approved").slice(0,1).map((item) => <Text key={item.id} style={styles.hint}>آخر طلب تحديث تمت الموافقة عليه.</Text>)}
+      {personalRequests.some((item) => item.status === "pending") && <Text style={styles.hint}>طلب تحديث المركبة قيد مراجعة الإدارة حالياً. بياناتك المعتمدة لم تتغير.</Text>}
+      {personalRequests.filter((item) => item.status === "rejected").slice(0,1).map((item) => <Text key={item.id} style={styles.note}>آخر طلب مرفوض: {item.rejection_reason || "يرجى مراجعة الإدارة لمعرفة السبب."}</Text>)}
+      {personalRequests.filter((item) => item.status === "approved").slice(0,1).map((item) => <Text key={item.id} style={styles.hint}>آخر طلب تحديث تمت الموافقة عليه.</Text>)}
       <View style={{ height: 12 }} />
       <Button title={vehicleBusy ? "جارٍ إرسال طلب المراجعة..." : "إرسال تحديث المركبة للمراجعة"} onPress={submitVehicleUpdate} loading={vehicleBusy} />
+      {personalRequests.filter((item) => item.requested_data?.profile_update).slice(0,3).map((item) => <View key={item.id} style={styles.requestStatus}>
+        <Text style={styles.note}>{item.status === "pending" ? "طلب تحديث بياناتك قيد مراجعة الإدارة" : item.status === "approved" ? "تمت الموافقة على آخر تحديث لبياناتك" : "تم رفض آخر تحديث لبياناتك"}</Text>
+        {item.status === "rejected" && <Text style={styles.note}>سبب الرفض: {item.rejection_reason || "يرجى التواصل مع الإدارة"}</Text>}
+      </View>)}
     </View>}
     {isCompanyAdmin && <View style={styles.nameSection}>
       <Text style={styles.sectionTitle}>اسم الشركة الظاهر للمستخدمين</Text>
