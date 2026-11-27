@@ -2,13 +2,29 @@ import Constants from "expo-constants";
 
 export type MamnoonAppVariant = "customer" | "worker" | "driver" | "large_driver";
 
-const configuredVariant = Constants.expoConfig?.extra?.appVariant;
+// Native builds may expose the embedded Expo manifest through different
+// Constants fields depending on the runtime. Resolve the carrier identity from
+// its immutable Android/iOS package as a final fallback so it can never fall
+// through to the customer default and accidentally open the taxi flow.
+const manifest2Extra = (Constants.manifest2 as any)?.extra?.expoClient?.extra;
+const legacyExtra = (Constants.manifest as any)?.extra;
+const configuredVariant =
+  Constants.expoConfig?.extra?.appVariant ??
+  manifest2Extra?.appVariant ??
+  legacyExtra?.appVariant;
+const packageName =
+  Constants.expoConfig?.android?.package ??
+  Constants.expoConfig?.ios?.bundleIdentifier ??
+  (Constants.manifest2 as any)?.extra?.expoClient?.android?.package ??
+  (Constants.manifest2 as any)?.extra?.expoClient?.ios?.bundleIdentifier ??
+  (Constants.manifest as any)?.android?.package ??
+  (Constants.manifest as any)?.ios?.bundleIdentifier;
+const packageVariant: MamnoonAppVariant | null =
+  packageName === "com.mamnoon.naql" ? "large_driver" : null;
+const isKnownVariant = (value: unknown): value is MamnoonAppVariant =>
+  value === "customer" || value === "worker" || value === "driver" || value === "large_driver";
 export const APP_VARIANT: MamnoonAppVariant =
-  configuredVariant === "worker" ||
-  configuredVariant === "driver" ||
-  configuredVariant === "large_driver"
-    ? configuredVariant
-    : "customer";
+  packageVariant ?? (isKnownVariant(configuredVariant) ? configuredVariant : "customer");
 
 export const REQUIRED_APP_ROLE = APP_VARIANT;
 

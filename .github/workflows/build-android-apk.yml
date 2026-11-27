@@ -1,9 +1,11 @@
+# Release-candidate verification build 2026-11-27
+# Manual APK build trigger: role-isolation-v1 test build
 name: Build Android APK (GitHub Actions)
 # Trigger standalone Android APK rebuild from GitHub Actions (no EAS cloud build).
 
 on:
   push:
-    branches: [main, feature/app-role-separation]
+    branches: [main, feature/app-role-separation, feature/live-navigation-v1, feature/role-isolation-v1]
     paths:
       - ".github/workflows/build-android-apk.yml"
       - "expo-app/**"
@@ -85,6 +87,7 @@ jobs:
           node - <<'NODE'
           const c = require('/tmp/expo-config.json');
           if (c.android?.package !== 'com.mamnoon.naql') throw new Error('Wrong Android package');
+          if (c.extra?.appVariant !== 'large_driver') throw new Error(`Wrong runtime app variant: ${c.extra?.appVariant}`);
           if (c.extra?.googleMapsConfigured !== true) throw new Error('Google Maps key was not loaded by app.config.ts');
           console.log('Expo identity and Maps environment validated (key value hidden)');
           NODE
