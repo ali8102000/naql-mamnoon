@@ -1,5 +1,5 @@
 name: Build Android APK (GitHub Actions)
-# Rebuild with the current repository secrets.
+# Trigger standalone Android APK rebuild from GitHub Actions (no EAS cloud build).
 
 on:
   push:
