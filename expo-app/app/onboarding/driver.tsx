@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocalSearchParams } from "expo-router";
+import { APP_VARIANT } from "@/lib/app-variant";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Image,
 } from "react-native";
@@ -25,10 +25,10 @@ const CATEGORIES = [
 
 export default function DriverOnboarding() {
   const { user, profile, refresh, setActiveRole, roles } = useAuth();
-  // Accept both the native parameter and the web/deep-link parameter so
-  // customer entry points consistently open the large-vehicle registration flow.
-  const params = useLocalSearchParams<{ providerType?: string; provider?: string }>();
-  const largeDriverMode = params.providerType === "large_driver" || params.provider === "large_driver";
+  // The installed app variant is authoritative: taxi registration belongs
+  // only to the captain app; large-vehicle registration belongs to the carrier app.
+  // Ignore stale or cross-app deep-link parameters so the flows cannot overlap.
+  const largeDriverMode = APP_VARIANT === "large_driver";
   const providerRole = largeDriverMode ? "large_driver" : "driver";
   const [companyName, setCompanyName] = useState("شركة ممنون");
   const [models, setModels] = useState<VehicleModel[]>([]);
@@ -118,7 +118,7 @@ export default function DriverOnboarding() {
         // status and vehicle fields when its category matches this entry flow.
         const relevantSaved = largeDriverMode
           ? (saved?.vehicle_category === "large" ? saved : null)
-          : saved;
+          : (saved?.vehicle_category !== "large" ? saved : null);
         const verificationData = verification.data;
         const m = (verificationData?.metadata ?? {}) as Record<string, unknown>;
         const roleGranted = !!providerRoleResult.data;
@@ -146,7 +146,7 @@ export default function DriverOnboarding() {
         if (typeof savedPlate === "string") setPlate(savedPlate);
         if (typeof savedColor === "string") setColor(savedColor);
         if (largeDriverMode) setCategory("large");
-        else if (savedCategory === "economy" || savedCategory === "premium" || savedCategory === "luxury" || savedCategory === "large") setCategory(savedCategory);
+        else if (savedCategory === "economy" || savedCategory === "premium" || savedCategory === "luxury") setCategory(savedCategory);
         const savedVehicleType = relevantSaved?.vehicle_type ?? m.vehicleType;
         if (savedVehicleType === "kia_cargo" || savedVehicleType === "kia_passenger" || savedVehicleType === "bus") setVehicleType(savedVehicleType);
         setOriginalVehicle({ make: make ?? (largeDriverMode ? "كيا" : ""), model: model ?? (largeDriverMode ? "كيا حمل" : ""), year: savedYear == null ? "" : String(savedYear), plate: savedPlate ?? "", color: savedColor ?? null, category: savedCategory ?? (largeDriverMode ? "large" : "economy"), vehicleType: savedVehicleType ?? null });
@@ -543,7 +543,7 @@ export default function DriverOnboarding() {
         <Text style={{ color: palette.muted, fontSize: 11, lineHeight: 19, textAlign: "right", marginTop: 5 }}>اكتب اسم السيارة أو اختر الموديل من القائمة، ويُحدد نوعها تلقائياً من سجل المركبات. رتبة أدائك تُحسب لاحقاً من الرحلات والتقييمات.</Text>
       </View>
 
-      {category !== "large" && <>
+      {!largeDriverMode && <>
         <Text style={styles.label}>ماركة السيارة</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
           {makes.map((m) => (
@@ -576,7 +576,7 @@ export default function DriverOnboarding() {
         </>}
       </>}
 
-      {category === "large" && (
+      {largeDriverMode && (
         <View style={{ marginTop: 12 }}>
           <Text style={styles.label}>نوع السيارة الكبيرة</Text>
           <View style={styles.row}>
