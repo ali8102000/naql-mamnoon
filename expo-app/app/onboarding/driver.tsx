@@ -98,7 +98,14 @@ export default function DriverOnboarding() {
       .then(({ data, error }) => {
         if (!active) return;
         if (error) Alert.alert("تنبيه", "تعذر تحميل قائمة السيارات.");
-        setModels((data ?? []) as VehicleModel[]);
+        // Keep each app's catalogue isolated: taxi sees only taxi classes;
+        // the carrier app sees only large-vehicle records.
+        const flowModels = (data ?? []).filter((item: any) =>
+          largeDriverMode
+            ? item.category === "large"
+            : ["economy", "premium", "luxury"].includes(item.category)
+        );
+        setModels(flowModels as VehicleModel[]);
       });
     if (user) {
       Promise.all([
@@ -113,14 +120,22 @@ export default function DriverOnboarding() {
       ]).then(async ([verification, driverProfile, providerRoleResult]) => {
         if (!active) return;
         const saved = driverProfile.data;
-        // Large-vehicle onboarding must never inherit taxi verification/status.
-        // driver_profiles is shared by the legacy taxi flow, so only trust its
-        // status and vehicle fields when its category matches this entry flow.
+        const isLargeVehicleRecord = (record: any) =>
+          record?.vehicle_category === "large" ||
+          ["kia_cargo", "kia_passenger", "bus"].includes(record?.vehicle_type) ||
+          ["كيا حمل", "كيا ركاب", "باص"].includes(String(record?.vehicle_model ?? "").trim());
+        // driver_profiles is shared by both provider apps; identify large vehicles
+        // by category, type, and legacy model names before restoring any saved data.
         const relevantSaved = largeDriverMode
-          ? (saved?.vehicle_category === "large" ? saved : null)
-          : (saved?.vehicle_category !== "large" ? saved : null);
+          ? (isLargeVehicleRecord(saved) ? saved : null)
+          : (!isLargeVehicleRecord(saved) ? saved : null);
         const verificationData = verification.data;
-        const m = (verificationData?.metadata ?? {}) as Record<string, unknown>;
+        const rawMetadata = (verificationData?.metadata ?? {}) as Record<string, unknown>;
+        const metadataIsLarge =
+          rawMetadata.vehicleCategory === "large" ||
+          ["kia_cargo", "kia_passenger", "bus"].includes(String(rawMetadata.vehicleType ?? "")) ||
+          ["كيا حمل", "كيا ركاب", "باص"].includes(String(rawMetadata.vehicleModel ?? "").trim());
+        const m = (largeDriverMode === metadataIsLarge ? rawMetadata : {}) as Record<string, unknown>;
         const roleGranted = !!providerRoleResult.data;
         const profileApproved = relevantSaved?.status === "approved";
         const approved = roleGranted && profileApproved && verificationData?.status !== "rejected";
